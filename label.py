@@ -158,28 +158,28 @@ class Clicker:
         """ Updates the sigma parameter and re-segments the image. """
         self.sigma = val
         self.segment_image()
-        clicker.update_ice_mask()
+        self.update_ice_mask()
         self.imshow()
 
     def update_compactness(self, val):
         """ Updates the compactness parameter and re-segments the image. """
         self.compactness = val
         self.segment_image()
-        clicker.update_ice_mask()
+        self.update_ice_mask()
         self.imshow()
     
     def update_thresh(self, val):
         """ Updates the threshold parameter and re-segments the image. """
         self.thresh = val
         self.segment_image()
-        clicker.update_ice_mask()        
+        self.update_ice_mask()        
         self.imshow()
 
     def update_n_segments(self, val):
         """ Updates the n_segments parameter and re-segments the image. """
         self.n_segments = int(val)
         self.segment_image()
-        clicker.update_ice_mask()        
+        self.update_ice_mask()        
         self.imshow()
     
     def imshow(self):
