@@ -255,7 +255,7 @@ class Clicker:
 
     def save_ice_mask(self):
         """ Saves the ice mask and labels to a file. """
-        np.savez(self.out_file, ice_mask=self.ice_mask.data, labels=self.labels)
+        np.savez(self.out_file, ice_mask=self.ice_mask.data, labels=self.labels, sigma = self.sigma, compactness = self.compactness, thresh = self.thresh, n_segments = self.n_segments)
 
 def main():
     """ Main function to run the interactive image labeling tool. """
@@ -275,17 +275,17 @@ def main():
         clicker = Clicker(ifile, outdir, sigma=sigma, compactness=compactness, thresh=thresh, n_segments=n_segments)
         clicker.load_image(ifile)
         if os.path.exists(clicker.out_file):
-            continue # skips the png files which alredy have an ice_mask created and updated
+            # continue # skips the png files which alredy have an ice_mask created and updated
             clicker.ice_mask = np.load(clicker.out_file)['ice_mask']
+            clicker.sigma = float(np.load(clicker.out_file)["sigma"])
+            clicker.compactness = float(np.load(clicker.out_file)["compactness"])
+            clicker.thresh = float(np.load(clicker.out_file)["thresh"])
+            clicker.n_segments = int(np.load(clicker.out_file)["n_segments"])
         
         clicker.segment_image()
         clicker.update_ice_mask()
         clicker.figure()
         clicker.save_ice_mask()
-        sigma = clicker.sigma
-        compactness = clicker.compactness
-        thresh = clicker.thresh
-        n_segments = clicker.n_segments
         #break
 
 if __name__ == "__main__":
