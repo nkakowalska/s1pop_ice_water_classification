@@ -93,17 +93,16 @@ class Clicker:
             Path to the input image file.
         """
         raw = plt.imread(ifile)[:512, :512, :]
-        r = raw[:,:,0].astype(float)
-        b = raw[:,:,2].astype(float)
-        g = r * (r + 2 * b * (1 - r))
-        self.mask = r == 0
+        r = raw[:,:,0].astype(float) # HH
+        b = raw[:,:,2].astype(float) # HV
+        g = r * (r + 2 * b * (1 - r)) # ice_concentration
+        self.mask = r != 0 # mask showing where the values for the HH channel exist
         self.sic = raw[:, :, 1]
         self.img = (255*np.dstack([r, g, b])).astype(np.uint8)
         self.ice_mask = np.zeros_like(self.sic, dtype=np.uint8)
         self.ice_mask[self.sic < self.min_sic] = 1
         self.ice_mask[self.sic >= self.min_sic] = 2
         self.ice_mask[self.sic == 0] = 0
-
 
     def onclick(self, event):
         """ Handles mouse click events on the image.
@@ -224,7 +223,7 @@ class Clicker:
 
     def segment_image(self):
         """ Segments the image using SLIC and hierarchical merging. """
-        labels0 = slic(self.img, n_segments=self.n_segments, compactness=self.compactness, sigma=self.sigma, start_label=1)
+        labels0 = slic(self.img, n_segments=self.n_segments, compactness=self.compactness, sigma=self.sigma, start_label=1, mask = self.mask)
         g = graph.rag_mean_color(self.img, labels0)
         self.labels = graph.merge_hierarchical(
             labels0,
