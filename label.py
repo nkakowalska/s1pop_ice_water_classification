@@ -92,7 +92,7 @@ class Clicker:
         ifile : str
             Path to the input image file.
         """
-        raw = plt.imread(ifile)[:512, :512, :]
+        raw = plt.imread(ifile)
         r = raw[:,:,0].astype(float) # HH
         b = raw[:,:,2].astype(float) # HV
         g = r * (r + 2 * b * (1 - r)) # ice_concentration
@@ -242,7 +242,7 @@ class Clicker:
         for label_id in label_ids:
             label_mask = self.labels == label_id
             label_size = np.sum(label_mask)
-            valid_mask = (self.img[:, :, 0] > 0) & (self.ice_mask > 0) & label_mask
+            valid_mask = (self.img[:, :, 0] > 0) & label_mask # --> works for all pixels with RGB values
             valid_size = valid_mask.sum()
             valid_size_rel = valid_size / label_size
             if valid_size_rel > self.min_invalid:
@@ -275,6 +275,7 @@ def main():
         clicker = Clicker(ifile, outdir, sigma=sigma, compactness=compactness, thresh=thresh, n_segments=n_segments)
         clicker.load_image(ifile)
         if os.path.exists(clicker.out_file):
+            continue # skips the png files which alredy have an ice_mask created and updated
             clicker.ice_mask = np.load(clicker.out_file)['ice_mask']
         
         clicker.segment_image()
