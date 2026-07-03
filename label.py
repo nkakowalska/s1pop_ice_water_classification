@@ -184,14 +184,24 @@ class Clicker:
     def imshow(self):
         """ Displays the image with the current labels and ice mask. """
         self.ax.clear()
-        self.ax.imshow(mark_boundaries(self.img, self.labels, color=(1,1,1)))
-        self.ax.imshow(self.ice_mask, alpha=self.alpha, cmap='gray')
+        self.layer1 = self.ax.imshow(mark_boundaries(self.img, self.labels, color=(1,1,1)))
+        self.layer2 = self.ax.imshow(self.ice_mask, alpha=self.alpha, cmap='gray')
         self.fig.canvas.draw()
-        
+
+    def toggle_layer(self, event):
+        """ Enables switching the mask layer on and off on the segmented image with the 'm' key."""
+        if event.key == 'm':
+            self.layer1.set_visible(True)
+            self.layer2.set_visible(not self.layer2.get_visible())
+            print(f"Mask visible: {self.layer2.get_visible()}")
+            self.fig.canvas.draw()
+        elif event.key != 'm':
+            return
+
     def figure(self):
         """ Creates the figure and sets up the interactive elements. """
         self.fig = plt.figure(figsize=(12, 12))
-        
+
         # Main image axes
         self.ax = plt.axes([0.1, 0.3, 0.8, 0.6])
         self.imshow()
@@ -218,6 +228,7 @@ class Clicker:
 
         self.fig.canvas.mpl_connect('button_press_event', self.onclick)
         self.fig.canvas.mpl_connect('motion_notify_event', self.on_move)
+        self.fig.canvas.mpl_connect('key_press_event', self.toggle_layer)
 
         plt.show()
 
@@ -242,7 +253,7 @@ class Clicker:
         for label_id in label_ids:
             label_mask = self.labels == label_id
             label_size = np.sum(label_mask)
-            valid_mask = (self.img[:, :, 0] > 0) & label_mask # --> works for all pixels with RGB values
+            valid_mask = (self.img[:, :, 0] > 0) & label_mask # --> works for all pixels with RGB values PROBLEM: The land also has RGB values but no iceconcentration and we don't want the ice_mask to be on land
             valid_size = valid_mask.sum()
             valid_size_rel = valid_size / label_size
             if valid_size_rel > self.min_invalid:
