@@ -79,7 +79,7 @@ class Clicker:
         self.compactness = compactness
         self.thresh = thresh
         self.n_segments = n_segments
-        self.min_sic = 0.3
+        self.min_sic = 30 
         self.min_ice_mask_mean = 1.25
         self.min_invalid = 0.1        
         self.move_counter = 0
@@ -96,13 +96,15 @@ class Clicker:
         r = raw[:,:,0].astype(float) # HH
         b = raw[:,:,2].astype(float) # HV
         g = r * (r + 2 * b * (1 - r)) # ice_concentration
-        self.mask = r != 0 # mask showing where the values for the HH channel exist
-        self.sic = raw[:, :, 1]
+        self.mask = r != 0 # mask showing where the values for the HH channel exist 
+        self.sic = ((255 * (raw[:, :, 1]))-2)
+        self.water_mask = self.sic != -1 # masking out land
         self.img = (255*np.dstack([r, g, b])).astype(np.uint8)
         self.ice_mask = np.zeros_like(self.sic, dtype=np.uint8)
         self.ice_mask[self.sic < self.min_sic] = 1
         self.ice_mask[self.sic >= self.min_sic] = 2
-        self.ice_mask[self.sic == 0] = 0
+        self.ice_mask[self.sic == -2] = 0
+        self.ice_mask[self.sic == -1] = 0
 
     def onclick(self, event):
         """ Handles mouse click events on the image.
@@ -122,7 +124,7 @@ class Clicker:
             self.ax.images[1].set_data(self.ice_mask)
             self.fig.canvas.draw()
     
-    def on_press(self, event):
+    def on_press(self, event): 
         """ Handles key press events on the image.
         
         Parameters
@@ -135,6 +137,21 @@ class Clicker:
             print("You pressed 'space'!")
         elif event.key == 'q':
             plt.close(self.fig) # Close the figure window
+            
+        # Enables switching the mask layer on and off on the segmented image with the 'm' key
+        elif event.key == 'm' and self.image_layer.get_visible() == False:
+            self.ice_mask_layer.set_visible(not self.ice_mask_layer.get_visible())
+            print(f"Mask visible: {self.ice_mask_layer.get_visible()}")
+            self.fig.canvas.draw()
+        
+        # Enables switching the segments layer on and off with the 'r' key
+        elif event.key == 'r':
+            self.image_layer.set_visible(not self.image_layer.get_visible())
+            print(f"Segments (regions) visible: {not self.image_layer.get_visible()}")
+            self.fig.canvas.draw()
+
+        else:
+            return
 
     def on_move(self, event):
         """ Handles mouse move events on the image.
@@ -188,25 +205,8 @@ class Clicker:
         self.regions_layer = self.ax.imshow(mark_boundaries(self.img, self.labels, color=(1,1,1)))
         self.ice_mask_layer = self.ax.imshow(self.ice_mask, alpha=self.alpha, cmap='gray')
         self.image_layer = self.ax.imshow(self.img)
-        self.fig.canvas.draw()
-
-    def toggle_layer(self, event):
-        """ Enables switching the mask layer on sand off on the segmented image with the 'm' key and the segments layer with the 'r' key.
-        
-        Parameters
-        ----------
-        event : matplotlib.backend_bases.MouseEvent
-            The mouse event.
-        """
-        if event.key == 'm' and self.image_layer.get_visible() == False:
-            self.ice_mask_layer.set_visible(not self.ice_mask_layer.get_visible())
-            print(f"Mask visible: {self.ice_mask_layer.get_visible()}")
-            self.fig.canvas.draw()
-        
-        elif event.key == 'r':
-            self.image_layer.set_visible(not self.image_layer.get_visible())
-            print(f"Segments (regions) visible: {not self.image_layer.get_visible()}")
-            self.fig.canvas.draw()
+        self.fig.canvas.draw() 
+        self.image_layer.set_visible(False) # at first displays the segmented image with automatic lables
 
     def figure(self, file_name):
         """ Creates the figure and sets up the interactive elements. """
@@ -215,7 +215,6 @@ class Clicker:
         # Main image axes
         self.ax = plt.axes([0.1, 0.3, 0.8, 0.6])
         self.imshow()
-        self.image_layer.set_visible(False) # at first displays the segmented image with automatic lables
         
         # Add slider for sigma control
         ax_sigma = plt.axes([0.1, 0.15, 0.65, 0.03])
@@ -239,13 +238,13 @@ class Clicker:
 
         self.fig.canvas.mpl_connect('button_press_event', self.onclick)
         self.fig.canvas.mpl_connect('motion_notify_event', self.on_move)
-        self.fig.canvas.mpl_connect('key_press_event', self.toggle_layer)
+        self.fig.canvas.mpl_connect('key_press_event', self.on_press)
 
         plt.show()
 
     def segment_image(self):
         """ Segments the image using SLIC and hierarchical merging. """
-        labels0 = slic(self.img, n_segments=self.n_segments, compactness=self.compactness, sigma=self.sigma, start_label=1, mask = self.mask)
+        labels0 = slic(self.img, n_segments=self.n_segments, compactness=self.compactness, sigma=self.sigma, start_label=1, mask = (self.mask & self.water_mask))
         g = graph.rag_mean_color(self.img, labels0)
         self.labels = graph.merge_hierarchical(
             labels0,
@@ -264,7 +263,7 @@ class Clicker:
         for label_id in label_ids:
             label_mask = self.labels == label_id
             label_size = np.sum(label_mask)
-            valid_mask = (self.img[:, :, 0] > 0) & label_mask # --> works for all pixels with RGB values PROBLEM: The land also has RGB values but no iceconcentration and we don't want the ice_mask to be on land
+            valid_mask = self.mask & label_mask & self.water_mask   # works for all pixels with RGB values that aren't land
             valid_size = valid_mask.sum()
             valid_size_rel = valid_size / label_size
             if valid_size_rel > self.min_invalid:
@@ -297,7 +296,7 @@ def main():
         clicker = Clicker(ifile, outdir, sigma=sigma, compactness=compactness, thresh=thresh, n_segments=n_segments)
         clicker.load_image(ifile)
         if os.path.exists(clicker.out_file):
-            # continue      # skips the png files which alredy have an ice_mask created and updated
+            #continue      # skips the png files which alredy have an ice_mask created and updated
             clicker.ice_mask = np.load(clicker.out_file)['ice_mask']
             clicker.sigma = float(np.load(clicker.out_file)["sigma"])
             clicker.compactness = float(np.load(clicker.out_file)["compactness"])
