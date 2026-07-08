@@ -165,11 +165,11 @@ class Clicker:
         # Check if the mouse is over the axes
         if event.inaxes and event.key in ['z', 'x']:
             label_id = self.labels[int(event.ydata), int(event.xdata)]
-            self.ice_mask[self.labels == label_id] = { 'z': 1, 'x': 2 }[event.key]
+            self.ice_mask[(self.labels == label_id) & (self.ice_mask != 0)] = { 'z': 1, 'x': 2 }[event.key]
             print(f'Moving at: ({event.xdata}, {event.ydata}) {self.img[int(event.ydata), int(event.xdata)]}')
             self.move_counter += 1
             if self.move_counter % 10 == 0:  # Update every 10 moves
-                self.ax.images[1].set_data(self.ice_mask)
+                self.ax.images[2].set_data(self.ice_mask)
                 self.fig.canvas.draw()
 
     def update_sigma(self, val):
