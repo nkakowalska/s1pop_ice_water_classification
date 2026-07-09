@@ -125,6 +125,7 @@ class Clicker:
             self.ice_mask[self.labels == label_id] = {0: 0, 1: 2, 2: 1}[mask_value]
             self.ax.images[2].set_data(self.ice_mask)
             self.fig.canvas.draw()
+            
     
     
     def on_press(self, event): 
@@ -176,31 +177,47 @@ class Clicker:
 
     def update_sigma(self, val):
         """ Updates the sigma parameter and re-segments the image. """
+        current_zoom_x = self.ax.get_xlim()
+        current_zoom_y = self.ax.get_ylim()
         self.sigma = val
         self.segment_image()
         self.update_ice_mask()
         self.imshow()
+        self.ax.set_xlim(current_zoom_x)
+        self.ax.set_ylim(current_zoom_y)
 
     def update_compactness(self, val):
         """ Updates the compactness parameter and re-segments the image. """
+        current_zoom_x = self.ax.get_xlim()
+        current_zoom_y = self.ax.get_ylim()
         self.compactness = val
         self.segment_image()
         self.update_ice_mask()
         self.imshow()
+        self.ax.set_xlim(current_zoom_x)
+        self.ax.set_ylim(current_zoom_y)
     
     def update_thresh(self, val):
         """ Updates the threshold parameter and re-segments the image. """
+        current_zoom_x = self.ax.get_xlim()
+        current_zoom_y = self.ax.get_ylim()
         self.thresh = val
         self.segment_image()
         self.update_ice_mask()        
         self.imshow()
+        self.ax.set_xlim(current_zoom_x)
+        self.ax.set_ylim(current_zoom_y)
 
     def update_n_segments(self, val):
         """ Updates the n_segments parameter and re-segments the image. """
+        current_zoom_x = self.ax.get_xlim()
+        current_zoom_y = self.ax.get_ylim()
         self.n_segments = int(val)
         self.segment_image()
         self.update_ice_mask()        
         self.imshow()
+        self.ax.set_xlim(current_zoom_x)
+        self.ax.set_ylim(current_zoom_y)
     
     def imshow(self):   
         """ Displays the image with the current labels and ice mask. """
@@ -209,6 +226,7 @@ class Clicker:
         self.regions_layer = self.ax.imshow(mark_boundaries(self.img, self.labels, color=(1,1,1)))
         self.ice_mask_layer = self.ax.imshow(self.ice_mask, alpha=self.alpha, cmap='gray')
         self.fig.canvas.draw()
+
 
     def figure(self, file_name):
         """ Creates the figure and sets up the interactive elements. """
