@@ -79,7 +79,7 @@ class Clicker:
         self.compactness = compactness
         self.thresh = thresh
         self.n_segments = n_segments
-        self.min_sic = 30 
+        self.min_sic = 30 # minimum procentage of sic for initial classification (NOT USED NOW)
         self.min_ice_mask_mean = 1.25
         self.min_invalid = 0.1        
         self.move_counter = 0
@@ -95,14 +95,17 @@ class Clicker:
         raw = plt.imread(ifile)
         r = raw[:,:,0].astype(float) # HH
         b = raw[:,:,2].astype(float) # HV
-        g = r * (r + 2 * b * (1 - r)) # ratio
+        g = (r * (r + 2 * b * (1 - r))) # ratio
+        g_seg = 255 - 255*raw[:,:,3] # classification band
+        self.classification = (255 - 255*raw[:,:,3]) # classification of ice concentrations (values 0 to 5)
         self.mask = r != 0 # mask showing where the values for the HH channel exist 
         self.sic = ((255 * (raw[:, :, 1]))-2)
         self.water_mask = self.sic != -1 # masking out land
-        self.img = (255*np.dstack([r, g, b])).astype(np.uint8)
+        self.img_seg = (np.dstack([r, g_seg, b])).astype(np.uint8)
+        self.img = (255 * np.dstack([r, g, b])).astype(np.uint8)
         self.ice_mask = np.zeros_like(self.sic, dtype=np.uint8)
-        self.ice_mask[self.sic < self.min_sic] = 1
-        self.ice_mask[self.sic >= self.min_sic] = 2
+        self.ice_mask[self.classification <= 1] = 1 # using ice classification for the initial classification 
+        self.ice_mask[self.classification  > 1] = 2 # using ice classification for the initial classification 
         self.ice_mask[self.sic == -2] = 0
         self.ice_mask[self.sic == -1] = 0
 
@@ -122,6 +125,8 @@ class Clicker:
             print(f'Clicked at: ({event.xdata}, {event.ydata} {event.button}) {self.img[int(event.ydata), int(event.xdata)]}')
             label_id = self.labels[int(event.ydata), int(event.xdata)]
             mask_value = self.ice_mask[int(event.ydata), int(event.xdata)]
+            if mask_value == 0:
+                return
             self.ice_mask[self.labels == label_id] = {0: 0, 1: 2, 2: 1}[mask_value]
             self.ax.images[2].set_data(self.ice_mask)
             self.fig.canvas.draw()
@@ -253,7 +258,7 @@ class Clicker:
 
         # Add slider for n_segments control
         ax_n_segments = plt.axes([0.1, 0.0, 0.65, 0.03])
-        self.slider_n_segments = Slider(ax_n_segments, 'N Segments', 100, 800, valinit=self.n_segments, valstep=1)
+        self.slider_n_segments = Slider(ax_n_segments, 'N Segments', 100, 1000, valinit=self.n_segments, valstep=1)
         self.slider_n_segments.on_changed(self.update_n_segments)
 
         self.fig.canvas.mpl_connect('button_press_event', self.onclick)
@@ -264,7 +269,7 @@ class Clicker:
 
     def segment_image(self):
         """ Segments the image using SLIC and hierarchical merging. """
-        labels0 = slic(self.img, n_segments=self.n_segments, compactness=self.compactness, sigma=self.sigma, start_label=1, mask = (self.mask & self.water_mask))
+        labels0 = slic(self.img_seg, n_segments=self.n_segments, compactness=self.compactness, sigma=self.sigma, start_label=1, mask = (self.mask & self.water_mask))
         g = graph.rag_mean_color(self.img, labels0)
         self.labels = graph.merge_hierarchical(
             labels0,
@@ -309,14 +314,14 @@ def main():
     sigma=1
     compactness=10
     thresh=10
-    n_segments=400
+    n_segments=600
 
     ifiles = sorted(glob.glob(f'{idir}/*.png'))
     for i, ifile in enumerate(ifiles):
         clicker = Clicker(ifile, outdir, sigma=sigma, compactness=compactness, thresh=thresh, n_segments=n_segments)
         clicker.load_image(ifile)
         if os.path.exists(clicker.out_file):
-            #continue      # skips the png files which alredy have an ice_mask created and updated
+            # continue      # skips the png files which alredy have an ice_mask created and updated
             clicker.ice_mask = np.load(clicker.out_file)['ice_mask']
             clicker.sigma = float(np.load(clicker.out_file)["sigma"])
             clicker.compactness = float(np.load(clicker.out_file)["compactness"])
