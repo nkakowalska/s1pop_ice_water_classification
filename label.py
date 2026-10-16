@@ -96,12 +96,10 @@ class Clicker:
         r = raw[:,:,0].astype(float) # HH
         b = raw[:,:,2].astype(float) # HV
         g = (r * (r + 2 * b * (1 - r))) # ratio
-        g_seg = 255 - 255*raw[:,:,3] # classification band
         self.classification = (255 - 255*raw[:,:,3]) # classification of ice concentrations (values 0 to 5)
         self.mask = r != 0 # mask showing where the values for the HH channel exist 
         self.sic = ((255 * (raw[:, :, 1]))-2)
         self.water_mask = self.sic != -1 # masking out land
-        self.img_seg = (np.dstack([r, g_seg, b])).astype(np.uint8)
         self.img = (255 * np.dstack([r, g, b])).astype(np.uint8)
         self.ice_mask = np.zeros_like(self.sic, dtype=np.uint8)
         self.ice_mask[self.classification <= 1] = 1 # using ice classification for the initial classification 
@@ -235,7 +233,7 @@ class Clicker:
 
     def figure(self, file_name):
         """ Creates the figure and sets up the interactive elements. """
-        self.fig = plt.figure(f'{file_name}', figsize=(12, 12))
+        self.fig = plt.figure(f'{file_name}', figsize=(15, 15))
 
         # Main image axes
         self.ax = plt.axes([0.1, 0.3, 0.8, 0.6])
@@ -258,7 +256,7 @@ class Clicker:
 
         # Add slider for n_segments control
         ax_n_segments = plt.axes([0.1, 0.0, 0.65, 0.03])
-        self.slider_n_segments = Slider(ax_n_segments, 'N Segments', 100, 1000, valinit=self.n_segments, valstep=1)
+        self.slider_n_segments = Slider(ax_n_segments, 'N Segments', 200, 1200, valinit=self.n_segments, valstep=1)
         self.slider_n_segments.on_changed(self.update_n_segments)
 
         self.fig.canvas.mpl_connect('button_press_event', self.onclick)
@@ -269,7 +267,7 @@ class Clicker:
 
     def segment_image(self):
         """ Segments the image using SLIC and hierarchical merging. """
-        labels0 = slic(self.img_seg, n_segments=self.n_segments, compactness=self.compactness, sigma=self.sigma, start_label=1, mask = (self.mask & self.water_mask))
+        labels0 = slic(self.img, n_segments=self.n_segments, compactness=self.compactness, sigma=self.sigma, start_label=1, mask = (self.mask & self.water_mask), enforce_connectivity = True, )
         g = graph.rag_mean_color(self.img, labels0)
         self.labels = graph.merge_hierarchical(
             labels0,
@@ -311,17 +309,17 @@ def main():
     
     idir = 'collocated'
     outdir = 'ice_masks'
-    sigma=1
+    sigma=2
     compactness=10
-    thresh=10
-    n_segments=600
+    thresh=5
+    n_segments=800
 
     ifiles = sorted(glob.glob(f'{idir}/*.png'))
     for i, ifile in enumerate(ifiles):
         clicker = Clicker(ifile, outdir, sigma=sigma, compactness=compactness, thresh=thresh, n_segments=n_segments)
         clicker.load_image(ifile)
         if os.path.exists(clicker.out_file):
-            # continue      # skips the png files which alredy have an ice_mask created and updated
+            continue      # skips the png files which alredy have an ice_mask created and updated
             clicker.ice_mask = np.load(clicker.out_file)['ice_mask']
             clicker.sigma = float(np.load(clicker.out_file)["sigma"])
             clicker.compactness = float(np.load(clicker.out_file)["compactness"])
